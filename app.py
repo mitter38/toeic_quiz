@@ -327,7 +327,6 @@ elif st.session_state.page == "quiz":
                 # バーと時間を更新
                 ratio = max(0.0, remaining / limit_sec)
                 progress_bar.progress(ratio)
-                status_text.caption(f"残り {remaining:.1f} 秒")
                 
                 # 少し待機（この間にボタンクリックを検知させる）
                 time.sleep(0.1)
