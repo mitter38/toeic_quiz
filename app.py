@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import random
 import os
+import difflib
 
 # ==========================================
 # 設定：ページの基本設定
