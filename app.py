@@ -155,7 +155,7 @@ if st.session_state.page == "menu":
     with st.expander("⚙️ オプション設定"):
         num_q = st.slider("問題数", min_value=5, max_value=50, value=10)
     
-    st.write("---") # 区切り線
+        st.write("---") # 区切り線
 
     # 制限時間設定
         use_timer = st.checkbox("制限時間を設ける", value=False)
