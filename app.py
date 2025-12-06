@@ -28,6 +28,7 @@ BASE_DIR = os.getcwd()
 
 # コースとファイル名の対応表
 QUIZ_FILES = {
+    "テスト用":"toeic_words_gemini.xlsx"
     "TOEIC 黒フレ": "toeic_words.xlsx",
     "TOEIC 復習モード": "toeic_words.xlsx"
 }
