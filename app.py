@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import os
 import difflib
+import time
 
 # ==========================================
 # 設定：ページの基本設定
@@ -20,6 +21,10 @@ div.stButton > button {
     height: 3em;
     font-size: 20px;
     font-weight: bold;
+}
+/* 制限時間バーの色を調整 */
+.stProgress > div > div > div > div {
+    background-color: #ff4b4b;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -107,6 +112,20 @@ def check_answer(selected_meaning):
     else:
         st.session_state.last_result = (f"❌ 不正解... (正解は「{correct_meaning}」)", "error")
         
+    move_to_next()
+
+def handle_time_up():
+    """時間切れ時の処理"""
+    q_word = st.session_state.quiz_data['question_words'][st.session_state.current_index]
+    correct_meaning = st.session_state.quiz_data['words_dict'][q_word]
+    
+    # 時間切れメッセージを設定
+    st.session_state.last_result = (f"⏰ 時間切れ！ (正解は「{correct_meaning}」)", "error")
+    
+    move_to_next()
+
+def move_to_next():
+    """次の問題へ進む共通処理"""
     st.session_state.current_index += 1
     st.session_state.current_choices = None
     
@@ -133,9 +152,18 @@ if st.session_state.page == "menu":
 
     # 問題数設定（アコーディオンに隠してスッキリさせる）
     with st.expander("⚙️ オプション設定"):
-        num_q = st.slider("1回の問題数", min_value=5, max_value=50, value=10)
+        num_q = st.slider("問題数", min_value=5, max_value=50, value=10)
     
-    st.markdown("---") # 区切り線
+    st.write("---") # 区切り線
+
+    # 制限時間設定
+        use_timer = st.checkbox("制限時間を設ける", value=False)
+        if use_timer:
+            time_limit = st.slider("1問あたりの制限時間（秒）", min_value=3, max_value=10, value=5)
+        else:
+            time_limit = 0 # 0は制限時間なしとする
+
+        st.markdown("---")
 
     # コースボタンを生成して配置
     # 辞書(QUIZ_FILES)にあるコースの分だけボタンを作ります
@@ -258,5 +286,41 @@ elif st.session_state.page == "quiz":
         choices = st.session_state.current_choices
         for choice in choices:
             if st.button(choice, use_container_width=True):
+                # ボタンが押されたら check_answer が走って rerun され、下のループは中断される
                 check_answer(choice)
                 st.rerun()
+
+        #制限時間のカウントダウン
+        # ボタン表示の下に書くことで、ボタン描画後に待機ループに入る
+        if limit_sec > 0:
+            # バーを表示するコンテナ
+            with timer_placeholder.container():
+                progress_bar = st.progress(1.0) # 最初は満タン(1.0)
+                status_text = st.empty()
+            
+            # カウントダウンループ
+            # Streamlitの仕様上、このループ中にボタンが押されると
+            # ループは中断され、スクリプトが再実行(rerun)されます。
+            # つまり、時間切れになる前にボタンを押せばOKということです。
+            
+            start_time = time.time()
+            while True:
+                elapsed = time.time() - start_time
+                remaining = limit_sec - elapsed
+                
+                if remaining <= 0:
+                    # 時間切れ！
+                    progress_bar.progress(0.0)
+                    status_text.write("⏳ 0.0 秒")
+                    handle_time_up() # 時間切れ処理を実行
+                    st.rerun() # 強制リロードして次の問題へ
+                    break
+                
+                # バーと時間を更新
+                ratio = max(0.0, remaining / limit_sec)
+                progress_bar.progress(ratio)
+                status_text.caption(f"残り {remaining:.1f} 秒")
+                
+                # 少し待機（この間にボタンクリックを検知させる）
+                time.sleep(0.1)
+            
