@@ -71,7 +71,7 @@ def is_similar(str1, str2, threshold=0.4):
     similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio()
     return similarity > threshold
 
-def initialize_quiz(course_name, num_questions=10,time_limit):
+def initialize_quiz(course_name, num_questions,time_limit):
     """選択されたコースでクイズを初期化する"""
     filename = QUIZ_FILES[course_name]
     word_data = load_data(filename)
