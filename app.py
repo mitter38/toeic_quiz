@@ -119,4 +119,88 @@ if st.session_state.page == "menu":
     with st.expander("⚙️ オプション設定（問題数など）"):
         num_q = st.slider("1回の問題数", min_value=5, max_value=20, value=10)
     
-    st
+    st.markdown("---") # 区切り線
+
+    # コースボタンを生成して配置
+    # 辞書(QUIZ_FILES)にあるコースの分だけボタンを作ります
+    for course_name in QUIZ_FILES.keys():
+        # type="primary" で目立つ色に、use_container_width=True で横幅いっぱいに
+        if st.button(course_name, type="primary", use_container_width=True):
+            # ボタンが押されたらそのコースで開始
+            if initialize_quiz(course_name, num_q):
+                st.session_state.page = "quiz"
+                st.rerun()
+        
+        st.write("") # ボタン間の隙間
+
+# --- 画面2: クイズ画面 ---
+elif st.session_state.page == "quiz":
+    
+    if 'quiz_data' not in st.session_state:
+        st.session_state.page = "menu"
+        st.rerun()
+
+    # ヘッダー
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.caption(f"挑戦中: {st.session_state.quiz_data['course_name']}")
+    with col2:
+        if st.button("中断", key="back_btn"):
+            go_to_menu()
+            st.rerun()
+
+    # 結果発表
+    if st.session_state.quiz_finished:
+        st.balloons()
+        st.header("🎉 結果発表 🎉")
+        
+        score = st.session_state.score
+        total = st.session_state.quiz_data['total_questions']
+        percentage = score / total * 100
+        
+        st.metric(label="スコア", value=f"{score} / {total}", delta=f"{percentage:.0f}%")
+        
+        if percentage == 100:
+            st.success("Perfect! 完璧です！")
+        elif percentage >= 80:
+            st.info("Excellent! すごい！")
+        else:
+            st.warning("Keep going! 復習しましょう。")
+            
+        st.write("")
+        if st.button("メニューに戻る 🏠", type="primary", use_container_width=True):
+            go_to_menu()
+            st.rerun()
+            
+    # 出題中
+    else:
+        if st.session_state.last_result:
+            msg, type_ = st.session_state.last_result
+            if type_ == "success":
+                st.success(msg)
+            else:
+                st.error(msg)
+            st.session_state.last_result = None
+
+        current_idx = st.session_state.current_index
+        total_q = st.session_state.quiz_data['total_questions']
+        q_word = st.session_state.quiz_data['question_words'][current_idx]
+        correct_meaning = st.session_state.quiz_data['words_dict'][q_word]
+
+        st.progress((current_idx) / total_q)
+        st.markdown(f"### Q{current_idx + 1}.  **{q_word}**")
+
+        if st.session_state.current_choices is None:
+            all_meanings = list(st.session_state.quiz_data['words_dict'].values())
+            distractors = [m for m in all_meanings if m != correct_meaning]
+            num_distractors = min(len(distractors), 3)
+            choices = random.sample(distractors, num_distractors)
+            choices.append(correct_meaning)
+            random.shuffle(choices)
+            st.session_state.current_choices = choices
+
+        choices = st.session_state.current_choices
+        for choice in choices:
+            if st.button(choice, use_container_width=True):
+                check_answer(choice)
+                st.rerun()
