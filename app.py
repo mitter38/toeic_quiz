@@ -91,7 +91,7 @@ def initialize_quiz(course_name, num_questions=10):
         'course_name': course_name,
         'words_dict': word_data,
         'question_words': random.sample(words, actual_num),
-        'total_questions': actual_num
+        'total_questions': actual_num,
         'time_limit': time_limit
     }
     st.session_state.current_index = 0
