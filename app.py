@@ -92,6 +92,7 @@ def initialize_quiz(course_name, num_questions=10):
         'words_dict': word_data,
         'question_words': random.sample(words, actual_num),
         'total_questions': actual_num
+        'time_limit': time_limit
     }
     st.session_state.current_index = 0
     st.session_state.score = 0
@@ -233,6 +234,13 @@ elif st.session_state.page == "quiz":
         q_word = st.session_state.quiz_data['question_words'][current_idx]
         correct_meaning = st.session_state.quiz_data['words_dict'][q_word]
 
+        # 制限時間の取得
+        limit_sec = st.session_state.quiz_data.get('time_limit', 0)
+        # ★追加：タイマー表示用のプレースホルダー（空き地）を作っておく
+        # ここに後でバーを表示します
+        timer_placeholder = st.empty()
+
+        # 進捗バーと問題文
         st.progress((current_idx) / total_q)
         st.markdown(f"### Q{current_idx + 1}.  **{q_word}**")
 
