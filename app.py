@@ -50,6 +50,20 @@ def load_data(filename):
     except Exception:
         return None
 
+def is_similar(str1, str2, threshold=0.4):
+    """
+    2つの文字列が似ているか判定する関数
+    threshold: 類似度のしきい値（0.0〜1.0）。数値が高いほど「激似」じゃないと弾かない。
+    0.4くらいが「漢字が部分的に被っている」のを弾くのに丁度よい。
+    """
+    # 完全に一致する場合は「似ている」とする
+    if str1 == str2:
+        return True
+    
+    # SequenceMatcherで類似度(0.0~1.0)を計算
+    similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio()
+    return similarity > threshold
+
 def initialize_quiz(course_name, num_questions=10):
     """選択されたコースでクイズを初期化する"""
     filename = QUIZ_FILES[course_name]
@@ -112,7 +126,7 @@ if 'page' not in st.session_state:
 
 # --- 画面1: メニュー画面 ---
 if st.session_state.page == "menu":
-    st.title("単語クイズ 📚")
+    st.title("単語クイズ for TOEIC 📚")
     st.write("コースを選んでスタート！")
 
     # 問題数設定（アコーディオンに隠してスッキリさせる）
@@ -174,6 +188,7 @@ elif st.session_state.page == "quiz":
             
     # 出題中
     else:
+        # 正誤表示
         if st.session_state.last_result:
             msg, type_ = st.session_state.last_result
             if type_ == "success":
@@ -182,6 +197,7 @@ elif st.session_state.page == "quiz":
                 st.error(msg)
             st.session_state.last_result = None
 
+        # 問題表示
         current_idx = st.session_state.current_index
         total_q = st.session_state.quiz_data['total_questions']
         q_word = st.session_state.quiz_data['question_words'][current_idx]
@@ -190,15 +206,53 @@ elif st.session_state.page == "quiz":
         st.progress((current_idx) / total_q)
         st.markdown(f"### Q{current_idx + 1}.  **{q_word}**")
 
+        # --- ★自動選別ロジック、意味が似ている単語を選択肢からはじく---
         if st.session_state.current_choices is None:
             all_meanings = list(st.session_state.quiz_data['words_dict'].values())
-            distractors = [m for m in all_meanings if m != correct_meaning]
-            num_distractors = min(len(distractors), 3)
-            choices = random.sample(distractors, num_distractors)
+            
+            # 誤答候補を入れるリスト
+            distractors = []
+            
+            # 全単語リストをシャッフルして、一つずつチェックしていく
+            random.shuffle(all_meanings)
+            
+            for candidate in all_meanings:
+                # 誤答が3つ集まったら終了
+                if len(distractors) >= 3:
+                    break
+                
+                # チェック1: 正解そのものではないか？
+                if candidate == correct_meaning:
+                    continue
+                
+                # チェック2: 正解と日本語が似すぎていないか？
+                if is_similar(candidate, correct_meaning, threshold=0.4):
+                    continue # 似ているのでスキップ
+                
+                # チェック3: すでに選んだ誤答と似すぎていないか？（選択肢同士の被り防止）
+                is_duplicate = False
+                for existing_distractor in distractors:
+                    if is_similar(candidate, existing_distractor, threshold=0.4):
+                        is_duplicate = True
+                        break
+                if is_duplicate:
+                    continue
+                
+                # 合格したものを採用
+                distractors.append(candidate)
+            
+            # 万が一、厳しすぎて候補が足りない場合の安全策（ランダムで埋める）
+            while len(distractors) < 3:
+                m = random.choice(all_meanings)
+                if m != correct_meaning and m not in distractors:
+                    distractors.append(m)
+
+            choices = distractors
             choices.append(correct_meaning)
             random.shuffle(choices)
             st.session_state.current_choices = choices
 
+        # ボタン表示
         choices = st.session_state.current_choices
         for choice in choices:
             if st.button(choice, use_container_width=True):
