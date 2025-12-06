@@ -71,7 +71,7 @@ def is_similar(str1, str2, threshold=0.4):
     similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio()
     return similarity > threshold
 
-def initialize_quiz(course_name, num_questions=10):
+def initialize_quiz(course_name, num_questions=10,time_limit):
     """選択されたコースでクイズを初期化する"""
     filename = QUIZ_FILES[course_name]
     word_data = load_data(filename)
@@ -151,7 +151,7 @@ if st.session_state.page == "menu":
     st.title("単語クイズ for TOEIC 📚")
     st.write("コースを選んでスタート！")
 
-    # 問題数設定（アコーディオンに隠してスッキリさせる）
+    # オプション設定（アコーディオンに隠してスッキリさせる）
     with st.expander("⚙️ オプション設定"):
         num_q = st.slider("問題数", min_value=5, max_value=50, value=10)
     
@@ -172,7 +172,7 @@ if st.session_state.page == "menu":
         # type="primary" で目立つ色に、use_container_width=True で横幅いっぱいに
         if st.button(course_name, type="primary", use_container_width=True):
             # ボタンが押されたらそのコースで開始
-            if initialize_quiz(course_name, num_q):
+            if initialize_quiz(course_name, num_q,time_limit):
                 st.session_state.page = "quiz"
                 st.rerun()
         
@@ -236,7 +236,7 @@ elif st.session_state.page == "quiz":
 
         # 制限時間の取得
         limit_sec = st.session_state.quiz_data.get('time_limit', 0)
-        # ★追加：タイマー表示用のプレースホルダー（空き地）を作っておく
+        # タイマー表示用のプレースホルダー（空き地）を作っておく
         # ここに後でバーを表示します
         timer_placeholder = st.empty()
 
