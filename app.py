@@ -28,7 +28,7 @@ BASE_DIR = os.getcwd()
 
 # コースとファイル名の対応表
 QUIZ_FILES = {
-    "TOEIC 上級 (800-990点)": "toeic_words.xlsx",
+    "TOEIC 黒フレ": "toeic_words.xlsx",
     "TOEIC 復習モード": "toeic_words.xlsx"
 }
 
@@ -116,8 +116,8 @@ if st.session_state.page == "menu":
     st.write("コースを選んでスタート！")
 
     # 問題数設定（アコーディオンに隠してスッキリさせる）
-    with st.expander("⚙️ オプション設定（問題数など）"):
-        num_q = st.slider("1回の問題数", min_value=5, max_value=20, value=10)
+    with st.expander("⚙️ オプション設定"):
+        num_q = st.slider("1回の問題数", min_value=5, max_value=50, value=10)
     
     st.markdown("---") # 区切り線
 
