@@ -4,6 +4,9 @@ import random
 import os
 import difflib
 import time
+import csv
+from datetime import datetime
+
 
 # ==========================================
 # 設定：ページの基本設定
@@ -31,6 +34,7 @@ div.stButton > button {
 
 # ファイルパス設定
 BASE_DIR = os.getcwd()
+HISTORY_FILE = os.path.join(BASE_DIR, "history.csv") # 学習履歴保存用ファイル
 
 # コースとファイル名の対応表
 QUIZ_FILES = {
@@ -57,6 +61,67 @@ def load_data(filename):
     except Exception:
         return None
 
+# 回答結果をCSVに記録する関数
+def save_history(word, is_correct):
+    """学習履歴を保存"""
+    # ファイルがなければヘッダーを作成
+    if not os.path.exists(HISTORY_FILE):
+        with open(HISTORY_FILE, mode='w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Word", "IsCorrect", "Timestamp"])
+
+    # 追記モードで保存
+    with open(HISTORY_FILE, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow([word, 1 if is_correct else 0, datetime.now().isoformat()])
+
+# 苦手な単語を選びやすくするAIロジック
+def get_weighted_questions(words, num_questions):
+    """学習履歴を読み込み、苦手な単語が出やすくなるように重み付け抽選を行う"""
+    if not os.path.exists(HISTORY_FILE):
+        return random.sample(words, min(num_questions, len(words)))
+
+    try:
+        history_df = pd.read_csv(HISTORY_FILE)
+        
+        # 単語ごとの「正解数」と「不正解数」を集計
+        stats = history_df.groupby("Word")["IsCorrect"].agg(['sum', 'count']).reset_index()
+        stats.rename(columns={'sum': 'corrects', 'count': 'total'}, inplace=True)
+        stats['wrongs'] = stats['total'] - stats['corrects']
+        
+        wrong_counts = dict(zip(stats['Word'], stats['wrongs']))
+        correct_counts = dict(zip(stats['Word'], stats['corrects']))
+
+        # 重み（出やすさ）の計算
+        # 基本10 + (不正解数 × 20) - (正解数 × 2)
+        weights = []
+        for word in words:
+            w_count = wrong_counts.get(word, 0)
+            c_count = correct_counts.get(word, 0)
+            score = 10 + (w_count * 20) - (c_count * 2)
+            if score < 1: score = 1
+            weights.append(score)
+        
+        # 重複なしで重み付き抽選を行うロジック
+        selected_questions = []
+        temp_words = list(words)
+        temp_weights = list(weights)
+        
+        for _ in range(min(num_questions, len(words))):
+            chosen_list = random.choices(temp_words, weights=temp_weights, k=1)
+            chosen_word = chosen_list[0]
+            selected_questions.append(chosen_word)
+            
+            # 選ばれた単語を候補から削除
+            idx = temp_words.index(chosen_word)
+            temp_words.pop(idx)
+            temp_weights.pop(idx)
+            
+        return selected_questions
+
+    except Exception:
+        return random.sample(words, min(num_questions, len(words)))
+
 def is_similar(str1, str2, threshold=0.4):
     """
     2つの文字列が似ているか判定する関数
@@ -71,7 +136,7 @@ def is_similar(str1, str2, threshold=0.4):
     similarity = difflib.SequenceMatcher(None, str(str1), str(str2)).ratio()
     return similarity > threshold
 
-def initialize_quiz(course_name, num_questions,time_limit):
+def initialize_quiz(course_name, num_questions, time_limit, use_ai_mode):
     """選択されたコースでクイズを初期化する"""
     filename = QUIZ_FILES[course_name]
     word_data = load_data(filename)
@@ -84,15 +149,18 @@ def initialize_quiz(course_name, num_questions,time_limit):
         st.error("データが不足しています。最低4単語必要です。")
         return False
 
-    words = list(word_data.keys())
-    actual_num = min(num_questions, len(words))
+if use_ai_mode:
+        question_words = get_weighted_questions(words, actual_num)
+    else:
+        question_words = random.sample(words, actual_num)
     
     st.session_state.quiz_data = {
         'course_name': course_name,
         'words_dict': word_data,
-        'question_words': random.sample(words, actual_num),
+        'question_words': question_words,
         'total_questions': actual_num,
-        'time_limit': time_limit
+        'time_limit': time_limit,
+        'use_ai_mode': use_ai_mode # ★追加：モード情報を保存
     }
     st.session_state.current_index = 0
     st.session_state.score = 0
@@ -107,7 +175,12 @@ def check_answer(selected_meaning):
     q_word = st.session_state.quiz_data['question_words'][st.session_state.current_index]
     correct_meaning = st.session_state.quiz_data['words_dict'][q_word]
     
-    if selected_meaning == correct_meaning:
+    is_correct = (selected_meaning == correct_meaning)
+    
+    # ★追加：履歴保存
+    save_history(q_word, is_correct)
+    
+    if is_correct:
         st.session_state.score += 1
         st.session_state.last_result = ("✅ 正解！", "success")
     else:
@@ -121,6 +194,7 @@ def handle_time_up():
     correct_meaning = st.session_state.quiz_data['words_dict'][q_word]
     
     # 時間切れメッセージを設定
+    save_history(q_word, False)
     st.session_state.last_result = (f"⏰ 時間切れ！ (正解は「{correct_meaning}」)", "error")
     
     move_to_next()
@@ -157,6 +231,10 @@ if st.session_state.page == "menu":
     
         st.write("---") # 区切り線
 
+        use_ai = st.toggle("🔥 AI弱点克服モード", value=False, help="過去に間違えた問題を優先的に出題します")
+
+        st.write("---")
+
     # 制限時間設定
         use_timer = st.checkbox("制限時間を設ける", value=False)
         if use_timer:
@@ -172,7 +250,7 @@ if st.session_state.page == "menu":
         # type="primary" で目立つ色に、use_container_width=True で横幅いっぱいに
         if st.button(course_name, type="primary", use_container_width=True):
             # ボタンが押されたらそのコースで開始
-            if initialize_quiz(course_name, num_q,time_limit):
+            if initialize_quiz(course_name, num_q,time_limit,use_ai):
                 st.session_state.page = "quiz"
                 st.rerun()
         
@@ -188,7 +266,8 @@ elif st.session_state.page == "quiz":
     # ヘッダー
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.caption(f"挑戦中: {st.session_state.quiz_data['course_name']}")
+        mode_text = "🔥AIモード" if st.session_state.quiz_data.get('use_ai_mode') else "通常モード"
+        st.caption(f"挑戦中: {st.session_state.quiz_data['course_name']} ({mode_text})")
     with col2:
         if st.button("中断", key="back_btn"):
             go_to_menu()
@@ -220,12 +299,9 @@ elif st.session_state.page == "quiz":
             # 同じ設定でもう一度遊ぶボタン
             if st.button("もう一度挑戦 🔄", type="primary", use_container_width=True):
                 # 現在の設定を取得
-                current_course = st.session_state.quiz_data['course_name']
-                current_num = st.session_state.quiz_data['total_questions']
-                current_limit = st.session_state.quiz_data['time_limit']
-                
-                # 再初期化（問題がシャッフルされます）
-                initialize_quiz(current_course, current_num, current_limit)
+                d = st.session_state.quiz_data
+                # AIモードの設定も引き継いで再初期化
+                initialize_quiz(d['course_name'], d['total_questions'], d['time_limit'], d['use_ai_mode'])
                 st.rerun()
 
         with col_menu:
