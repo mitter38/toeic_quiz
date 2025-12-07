@@ -25,8 +25,14 @@ div.stButton > button {
     font-size: 20px;
     font-weight: bold;
 }
-/* 制限時間バーの色を調整 */
+/* 1. 基本のバー（問題番号）を青にする */
 .stProgress > div > div > div > div {
+    background-color: #007bff;
+}
+
+/* 2. 制限時間のバー（2つ目に表示されるバー）を赤で上書きする */
+/* ページ内の2番目のプログレスバーをターゲットにします */
+.stProgress:nth-of-type(2) > div > div > div > div {
     background-color: #ff4b4b;
 }
 </style>
@@ -180,7 +186,7 @@ def check_answer(selected_meaning):
     
     is_correct = (selected_meaning == correct_meaning)
     
-    # ★追加：履歴保存
+    # 履歴保存
     save_history(q_word, is_correct)
     
     if is_correct:
@@ -258,6 +264,39 @@ if st.session_state.page == "menu":
                 st.rerun()
         
         st.write("") # ボタン間の隙間
+
+#学習ダッシュボード
+    st.markdown("---")
+    st.header("📊 学習データ")
+    
+    if os.path.exists(HISTORY_FILE):
+        try:
+            df = pd.read_csv(HISTORY_FILE)
+            if not df.empty:
+                # 1. 基本スタッツの表示
+                total_answers = len(df)
+                total_correct = df['IsCorrect'].sum()
+                accuracy = (total_correct / total_answers) * 100
+                
+                col1, col2, col3 = st.columns(3)
+                col1.metric("総回答数", f"{total_answers}問")
+                col2.metric("正解数", f"{total_correct}問")
+                col3.metric("正答率", f"{accuracy:.1f}%")
+                
+                # 2. 日別学習量のグラフ
+                # Timestamp列を日時型に変換して、日付ごとの回答数を集計
+                df['Date'] = pd.to_datetime(df['Timestamp']).dt.date
+                daily_counts = df.groupby('Date')['IsCorrect'].count()
+                
+                st.write("##### 📅 日々の学習量")
+                st.bar_chart(daily_counts)
+                
+            else:
+                st.info("まだ学習履歴がありません。クイズを解くとここにデータが表示されます。")
+        except Exception as e:
+            st.error(f"データの読み込みに失敗しました: {e}")
+    else:
+        st.info("まだ学習データがありません。クイズに挑戦して履歴を作りましょう！")
 
 # --- 画面2: クイズ画面 ---
 elif st.session_state.page == "quiz":
