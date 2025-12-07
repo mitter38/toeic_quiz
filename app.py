@@ -213,9 +213,26 @@ elif st.session_state.page == "quiz":
             st.warning("Keep going! 復習しましょう。")
             
         st.write("")
-        if st.button("メニューに戻る 🏠", type="primary", use_container_width=True):
-            go_to_menu()
-            st.rerun()
+
+        col_retry, col_menu = st.columns(2)
+        
+        with col_retry:
+            # 同じ設定でもう一度遊ぶボタン
+            if st.button("もう一度挑戦 🔄", type="primary", use_container_width=True):
+                # 現在の設定を取得
+                current_course = st.session_state.quiz_data['course_name']
+                current_num = st.session_state.quiz_data['total_questions']
+                current_limit = st.session_state.quiz_data['time_limit']
+                
+                # 再初期化（問題がシャッフルされます）
+                initialize_quiz(current_course, current_num, current_limit)
+                st.rerun()
+
+        with col_menu:
+            # メニューに戻るボタン
+            if st.button("メニューに戻る 🏠", use_container_width=True):
+                go_to_menu()
+                st.rerun()
             
     # 出題中
     else:
@@ -244,7 +261,7 @@ elif st.session_state.page == "quiz":
         st.progress((current_idx) / total_q)
         st.markdown(f"### Q{current_idx + 1}.  **{q_word}**")
 
-        # --- ★自動選別ロジック、意味が似ている単語を選択肢からはじく---
+        # --- 自動選別ロジック、意味が似ている単語を選択肢からはじく---
         if st.session_state.current_choices is None:
             all_meanings = list(st.session_state.quiz_data['words_dict'].values())
             
