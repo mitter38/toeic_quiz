@@ -149,7 +149,10 @@ def initialize_quiz(course_name, num_questions, time_limit, use_ai_mode):
         st.error("データが不足しています。最低4単語必要です。")
         return False
 
-if use_ai_mode:
+    words = list(word_data.keys())
+    actual_num = min(num_questions, len(words))
+
+    if use_ai_mode:
         question_words = get_weighted_questions(words, actual_num)
     else:
         question_words = random.sample(words, actual_num)
@@ -160,7 +163,7 @@ if use_ai_mode:
         'question_words': question_words,
         'total_questions': actual_num,
         'time_limit': time_limit,
-        'use_ai_mode': use_ai_mode # ★追加：モード情報を保存
+        'use_ai_mode': use_ai_mode # モード情報を保存
     }
     st.session_state.current_index = 0
     st.session_state.score = 0
