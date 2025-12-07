@@ -290,6 +290,15 @@ if st.session_state.page == "menu":
                 
                 st.write("##### 📅 日々の学習量")
                 st.bar_chart(daily_counts)
+
+                st.write("")
+                with st.expander("🗑️ データの管理（リセット）"):
+                    st.warning("これまでの学習履歴（正解・不正解の記録）をすべて消去します。この操作は取り消せません。")
+                    if st.button("学習データを完全にリセットする", type="primary"):
+                        os.remove(HISTORY_FILE) # ファイルを削除
+                        st.success("リセットしました！")
+                        time.sleep(1) # 1秒待ってから
+                        st.rerun() # 画面を更新
                 
             else:
                 st.info("まだ学習履歴がありません。クイズを解くとここにデータが表示されます。")
