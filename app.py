@@ -169,7 +169,6 @@ if st.session_state.page == "menu":
         st.markdown("---")
 
     # コースボタンを生成して配置
-    # 辞書(QUIZ_FILES)にあるコースの分だけボタンを作ります
     for course_name in QUIZ_FILES.keys():
         # type="primary" で目立つ色に、use_container_width=True で横幅いっぱいに
         if st.button(course_name, type="primary", use_container_width=True):
@@ -267,8 +266,7 @@ elif st.session_state.page == "quiz":
         # ここに後でバーを表示します
         timer_placeholder = st.empty()
 
-        # 進捗バーと問題文
-        st.progress((current_idx) / total_q)
+
         # 記録（進捗と正解数）の表示を追加
         st.write(f"進捗: **{current_idx + 1} / {total_q}問目** （現在の正解数: {st.session_state.score}問）")
         st.markdown(f"### Q{current_idx + 1}.  **{q_word}**")
